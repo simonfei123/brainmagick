@@ -27,6 +27,8 @@ from .features import FeaturesBuilder
 from .events import Event, split_wav_as_block, assign_blocks
 from .utils import Frequency, roundrobin
 
+import pdb
+
 # pylint: disable=logging-fstring-interpolation
 logger = logging.getLogger(__name__)
 OptionalPath = tp.Optional[tp.Union[str, Path]]
@@ -148,12 +150,14 @@ class _DatasetFactory:
                 # print("need", start - self._opts["tmin"], stop + delta - self._opts["tmax"])
                 # print("ok", sum(in_split))
                 in_any_split |= in_split
+                # import pdb; pdb.set_trace()
             mask &= in_any_split
         if not mask.any():
             logger.warning("Empty dataset %r", recording)
             return None
         # assert mask.any(), "empty dataset"
         # TODO understand why samples/times some are not unique nor ordered
+        # import pdb; pdb.set_trace()
         samples = sample_rate.to_ind(times[mask])
         unique_samples = np.unique(samples)
         if len(unique_samples) != len(samples):
@@ -389,12 +393,16 @@ def _extract_recordings(selections: tp.List[tp.Dict[str, tp.Any]], n_recordings:
     """Extract the number of recordings required, and mix audio and visual if need be
     """  # this is a function to help testing, especially the "any" case
     recording_lists = [list(studies.from_selection(select)) for select in selections]
+    # print(recording_lists)
+    # import pdb; pdb.set_trace()
     if shuffle_recordings_seed > 0:  # deactivated if -1
         rng = np.random.RandomState(seed=shuffle_recordings_seed)
         for subjs in recording_lists:
             rng.shuffle(subjs)  # type: ignore
     all_recordings = list(roundrobin(*recording_lists))
     all_recordings = all_recordings[skip_recordings: skip_recordings + n_recordings]
+    # print(all_recordings)
+    # import pdb; pdb.set_trace()
     if len(all_recordings) < n_recordings:
         logger.warning("Requested %d recordings but only found %d",
                        n_recordings, len(all_recordings))
@@ -416,7 +424,8 @@ def get_datasets(
         valid_ratio: float,
         sample_rate: int = studies.schoffelen2019.RAW_SAMPLE_RATE,  # FIXME
         highpass: float = 0,
-        num_workers: int = 10,
+        # num_workers: int = 10,
+        num_workers: int = 1,
         apply_baseline: bool = True,
         progress: bool = False,
         skip_recordings: int = 0,
@@ -441,6 +450,7 @@ def get_datasets(
         extra_test_features = []
     assert env.cache is not None
     num_workers = max(1, min(n_recordings, num_workers))
+    print(f'num_workers: {num_workers}')
 
     # Use barrier to prevent multiple workers from computing the cache
     # in parallel.
@@ -450,6 +460,7 @@ def get_datasets(
     all_recordings = _extract_recordings(
         selections, n_recordings, skip_recordings=skip_recordings,
         shuffle_recordings_seed=shuffle_recordings_seed)
+    # import pdb; pdb.set_trace()
     if num_workers <= 1:
         if progress:
             all_recordings = LogProgress(logger, all_recordings,   # type: ignore
@@ -458,6 +469,7 @@ def get_datasets(
             _preload(s, sample_rate=sample_rate, highpass=highpass) for s in all_recordings]
     else:
         # precompute slow metadata loading
+        
         with futures.ProcessPoolExecutor(num_workers) as pool:
             jobs = [pool.submit(_preload, s, sample_rate=sample_rate, highpass=highpass)
                     for s in all_recordings]
@@ -467,6 +479,7 @@ def get_datasets(
             all_recordings = [j.result() for j in jobs]  # check for exceptions
     if flashy.distrib.is_rank_zero():
         flashy.distrib.barrier()  # type: ignore
+    # import pdb; pdb.set_trace()
     # create datasets through factory, split them and concatenate
     meg_dimension = max(recording.meg_dimension for recording in all_recordings)
     factory_kwargs.update(sample_rate=sample_rate, highpass=highpass, meg_dimension=meg_dimension,
@@ -486,20 +499,48 @@ def get_datasets(
 
     dsets_per_split: tp.List[tp.List[SegmentDataset]] = [[], [], []]
     for i, recording in enumerate(all_recordings):
+        # import pdb; pdb.set_trace()
         events = recording.events()
+        #      kind  image_id      start  duration language modality      uid
+        # 0   block       NaN   2.854167       1.0  english   visual  24812.0
+        # 1     exp   24812.0   2.854167       0.5  english   visual      NaN
+        # 2   block       NaN   4.505000       1.0  english   visual   8355.0
+        # 3     exp    8355.0   4.505000       0.5  english   visual      NaN
+        # 4   block       NaN   6.055833       1.0  english   visual   9054.0
+        # 5     exp    9054.0   6.055833       0.5  english   visual      NaN
+        # 6   block       NaN   7.405833       1.0  english   visual   3648.0
+        # 7     exp    3648.0   7.405833       0.5  english   visual      NaN
+        # 8   block       NaN   8.923333       1.0  english   visual  21998.0
+        # 9     exp   21998.0   8.923333       0.5  english   visual      NaN
+        # 10  block       NaN  10.407500       1.0  english   visual   4803.0
+        # 11    exp    4803.0  10.407500       0.5  english   visual      NaN
+        # import pdb; pdb.set_trace()
         blocks = events[events.kind == 'block']
 
         if min_block_duration > 0 and not force_uid_assignement:
-            if recording.study_name() not in ['schoffelen2019']:
+            if recording.study_name() not in ['schoffelen2019', 'hebart2023']:
                 blocks = blocks.event.merge_blocks(min_block_duration_s=min_block_duration)
 
         blocks = assign_blocks(
             blocks, [test_ratio, valid_ratio], remove_ratio=remove_ratio, seed=split_assign_seed,
             min_n_blocks_per_split=min_n_blocks_per_split)
+        # (Pdb) p blocks[blocks['split'] == 0].shape
+        # (33, 8)
+        # (Pdb) p blocks[blocks['split'] == 1].shape
+        # (18, 8)
+        # (Pdb) p blocks[blocks['split'] == 2].shape
+        # (135, 8)
+        
+        # import pdb; pdb.set_trace()
+
         for j, (fact, dsets) in enumerate(zip(factories, dsets_per_split)):
             split_blocks = blocks[blocks.split == j]
             if not split_blocks.empty:
                 start_stops = [(b.start, b.start + b.duration) for b in split_blocks.itertuples()]
+                # [(19.310833, 22.195), (60.860833, 62.394167), (65.445833, 67.146667), (89.421667, 91.005833), (114.715, 117.715833), (141.575833, 142.859167), (146.960833, 148.411667), (148.411667, 150.045833), (154.414167, 155.764167), (161.916667, 163.400833), (163.400833, 164.968333), (166.518333, 167.969167), (184.875833, 186.36), (192.579167, 194.079167), (194.079167, 195.513333), (195.513333, 197.064167), (203.083333, 204.416667), (210.0025, 213.07), (233.728333, 236.546667), (236.546667, 238.13), (238.13, 241.398333), (257.655, 259.221667), (286.2825, 287.733333), (292.535, 293.885833), (297.036667, 298.454167), (301.705, 303.405833), (304.973333, 306.5575), (306.5575, 308.124167), (308.124167, 309.475), (315.2275, 316.5775), (316.5775, 317.978333), (327.181667, 328.6325), (334.268333, 335.751667)]
+                # [(18.810833, 19.810833), (60.360833, 61.360833), (64.945833, 65.945833), (88.921667, 89.921667), (114.215, 115.215), (141.075833, 142.075833), (146.460833, 147.460833), (147.911667, 148.911667), (153.914167, 154.914167), (161.416667, 162.416667), (162.900833, 163.900833), (166.018333, 167.018333), (184.375833, 185.375833), (192.079167, 193.079167), (193.579167, 194.579167), (195.013333, 196.013333), (202.583333, 203.583333), (209.5025, 210.5025), (233.228333, 234.228333), (236.046667, 237.046667), (237.63, 238.63), (257.155, 258.155), (285.7825, 286.7825), (292.035, 293.035), (296.536667, 297.536667), (301.205, 302.205), (304.473333, 305.473333), (306.0575, 307.0575), (307.624167, 308.624167), (314.7275, 315.7275), (316.0775, 317.0775), (326.681667, 327.681667), (333.768333, 334.768333)]
+                # [(19.310833, 20.310833), (60.860833, 61.860833), (65.445833, 66.445833), (89.421667, 90.421667), (114.715, 115.715), (141.575833, 142.575833), (146.960833, 147.960833), (148.411667, 149.411667), (154.414167, 155.414167), (161.916667, 162.916667), (163.400833, 164.400833), (166.518333, 167.518333), (184.875833, 185.875833), (192.579167, 193.579167), (194.079167, 195.079167), (195.513333, 196.513333), (203.083333, 204.083333), (210.0025, 211.0025), (233.728333, 234.728333), (236.546667, 237.546667), (238.13, 239.13), (257.655, 258.655), (286.2825, 287.2825), (292.535, 293.535), (297.036667, 298.036667), (301.705, 302.705), (304.973333, 305.973333), (306.5575, 307.5575), (308.124167, 309.124167), (315.2275, 316.2275), (316.5775, 317.5775), (327.181667, 328.181667), (334.268333, 335.268333)]
+                # import pdb; pdb.set_trace()
                 dset = fact.apply(recording, blocks=start_stops)
                 if dset is not None:
                     dsets.append(dset)
@@ -509,6 +550,8 @@ def get_datasets(
             else:
                 logger.warning(f'No blocks found for split {j + 1}/{len(factories)} of '
                                f'recording {i + 1}/{n_recordings}.')
+
+    # import pdb; pdb.set_trace()
 
     if not allow_empty_split:
         empty_names = [name for name, dset in zip(

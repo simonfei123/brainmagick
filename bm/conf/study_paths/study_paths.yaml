@@ -1,6 +1,8 @@
 # specificy the data paths here
 default:
-  gwilliams2022: ./data/gwilliams2022/
+  hebart2023: /mnt/sphere/projects/image_decoding_from_brain/THINGS-MEG-raw
+  # gwilliams2022: ./data/gwilliams2022/
+  gwilliams2022: /mnt/sphere/home/ijackson/GWilliams2022
   schoffelen2019: ./data/schoffelen2019/
   brennan2019: ./data/brennan2019/
   broderick2019: ./data/broderick2019/

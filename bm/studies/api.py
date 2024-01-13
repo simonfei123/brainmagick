@@ -43,6 +43,10 @@ def from_selection(selection: tp.Dict[str, tp.Any]) -> tp.Iterator["Recording"]:
     """
     params = dict(selection)
     name = params.pop("study")
+    print('params:', params)
+    # import pdb; pdb.set_trace()
+    # print(register)
+    # print(selection)
     return register[name].iter(**params)
 
 
@@ -97,12 +101,17 @@ class Recording:
         if cls.__name__.startswith('_'):
             return  # for base classes
         name = cls.study_name()
+        # export CUDA_VISIBLE_DEVICES=2
+        # $CUDA_VISIBLE_DEVICES
+        # import pdb; pdb.set_trace()
         register[name] = cls
         expected_name = cls.__module__.rsplit('.', maxsplit=1)[-1]
         assert name == expected_name, (
             f"Study {name} is defined in {expected_name} "
             "instead of its using name.")
         register[cls.study_name()] = cls
+        print(f"Registering {cls.study_name()}")
+        print(register)
         # check that Recording has correct information
         compulsory_keys = (
             'data_url', 'paper_url', 'doi', 'licence', 'modality',
@@ -229,6 +238,7 @@ class Recording:
             low_mne = preprocess_mne(self.raw(), sample_rate=sample_rate, highpass=highpass)
             low_mne.save(str(filepath), overwrite=True)
             _give_permission(filepath)  # for sharing
+        # import pdb; pdb.set_trace()
         self._arrays[key] = mne.io.read_raw_fif(str(filepath), preload=False)
         self.mne_info  # populate mne info cache.
         return self._arrays[key]
@@ -261,7 +271,9 @@ class Recording:
                 if cache_file.exists():
                     self._events = self._read_from_cache(cache_file)
                 else:
+                    # import pdb; pdb.set_trace()
                     self._events = self._load_events()
+                    print(self._events)
                     self._write_to_cache(self._events, cache_file)
         events = self._events
 
@@ -359,7 +371,7 @@ def preprocess_mne(
     info_kwargs['sfreq'] = sample_rate
     info = mne.Info(**info_kwargs)
     # check that layout works
-    layout = mne.find_layout(info)  # noqa
+    # layout = mne.find_layout(info)  # noqa
     return mne.io.RawArray(data.numpy(), info=info)
 
 

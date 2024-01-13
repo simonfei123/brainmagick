@@ -51,6 +51,7 @@ class FeaturesBuilder(OrderedDict):  # type: ignore
         # prepare events
         event_kinds = {f.event_kind for f in self.values()}
         if self.event_mask:
+            import pdb; pdb.set_trace()
             from .basic import WordSegment  # lazy import
             self.word_seg_feature = WordSegment(self.sample_rate)
             event_kinds.add(self.word_seg_feature.event_kind)
@@ -60,7 +61,9 @@ class FeaturesBuilder(OrderedDict):  # type: ignore
         self.events.loc[:, "_stop"] = self.events.start + self.events.duration  # TODO move
         missing_events = event_kinds - set(events.kind)
         missing_events -= set(['sound'])  # too many warnings for multimodal models.
+        # import pdb; pdb.set_trace()
         if missing_events and len(events) > 0:
+            import pdb; pdb.set_trace()
             logger.warning("Could not find any event for feature(s) "
                            "with kind(s): %s", missing_events)
 

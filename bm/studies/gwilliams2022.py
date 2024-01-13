@@ -114,6 +114,7 @@ class Gwilliams2022Recording(api.Recording):
         into mne use a Annotation class in order to save the whole thing into
         a *.fif file, At reading time, I'm converting it back to a DataFrame
         """
+        
         raw = self.raw()
         paths = StudyPaths()
 
@@ -127,10 +128,19 @@ class Gwilliams2022Recording(api.Recording):
                 stem, _, ext = event["sound"].lower().rsplit(".", 2)
                 event["filepath"] = paths.download / (stem + "." + ext)
             events.append(event)
-
+        import pdb; pdb.set_trace()
         events_df = pd.DataFrame(events)
         events_df[['language', 'modality']] = 'english', 'audio'
         events_df = extract_sequence_info(events_df)
         events_df = events_df.event.create_blocks(groupby='sentence')
 
         return events_df
+    
+        #   array(["{'story': 'lw1', 'story_uid': 0.0, 'sound_id': 0.0, 'kind': 'sound', 'start': 0.0, 'sound': 'stimuli/audio/lw1_0.0.wav'}",
+        #    "{'story': 'lw1', 'story_uid': 0.0, 'sound_id': 0.0, 'kind': 'phoneme', 'start': 0.0, 'sound': 'stimuli/audio/lw1_0.wav', 'phoneme': 't_B', 'sequence_id': 0.0, 'condition': 'sentence', 'word_index': 0.0, 'speech_rate': 205.0, 'voice': 'Allison', 'pronounced': 1.0}",
+        #    "{'story': 'lw1', 'story_uid': 0.0, 'sound_id': 0.0, 'kind': 'word', 'start': 0.0, 'sound': 'stimuli/audio/lw1_0.wav', 'word': 'Tara', 'sequence_id': 0.0, 'condition': 'sentence', 'word_index': 0.0, 'speech_rate': 205.0, 'voice': 'Allison', 'pronounced': 1.0}",
+        #    ...,
+        #    "{'story': 'lw1', 'story_uid': 0.0, 'sound_id': 3.0, 'kind': 'phoneme', 'start': 52.03, 'sound': 'stimuli/audio/lw1_3.wav', 'phoneme': 'sh_I', 'sequence_id': 52.0, 'condition': 'sentence', 'word_index': 22.0, 'speech_rate': 205.0, 'voice': 'Allison', 'pronounced': 1.0}",
+        #    "{'story': 'lw1', 'story_uid': 0.0, 'sound_id': 3.0, 'kind': 'phoneme', 'start': 52.11, 'sound': 'stimuli/audio/lw1_3.wav', 'phoneme': 'iy_I', 'sequence_id': 52.0, 'condition': 'sentence', 'word_index': 22.0, 'speech_rate': 205.0, 'voice': 'Allison', 'pronounced': 1.0}",
+        #    "{'story': 'lw1', 'story_uid': 0.0, 'sound_id': 3.0, 'kind': 'phoneme', 'start': 52.12, 'sound': 'stimuli/audio/lw1_3.wav', 'phoneme': 'z_E', 'sequence_id': 52.0, 'condition': 'sentence', 'word_index': 22.0, 'speech_rate': 205.0, 'voice': 'Allison', 'pronounced': 1.0}"],
+        #   dtype='<U275')

@@ -192,6 +192,31 @@ class Block(Event):
         super().__post_init__()
         self.uid = str(self.uid)
 
+@dataclass
+class Exp(Event):
+    """Event corresponding to a block, defined by a start, a duration and a unique identifier.
+    """
+    image_id: str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.image_id = str(self.image_id)
+
+@dataclass
+class Test(Event):
+    """Event corresponding to a block, defined by a start, a duration and a unique identifier.
+    """
+    image_id: str
+
+    def __post_init__(self):
+        super().__post_init__()
+        self.image_id = str(self.image_id)
+
+@dataclass
+class Catch(Event):
+    def __post_init__(self):
+        super().__post_init__()
+
 
 # Functions for processing events into blocks
 
@@ -309,7 +334,9 @@ def _create_blocks(events: pd.DataFrame, groupby: str) -> pd.DataFrame:
 
     # Find events that are valid block starts
     blocks = list()
+    # import pdb; pdb.set_trace()
     for event in events.event.iter():
+        # import pdb; pdb.set_trace()
         if groupby == "sentence":
             block_start = (event.kind == "word") and (event.word_index == 0)
         elif groupby == "sound":
@@ -320,6 +347,11 @@ def _create_blocks(events: pd.DataFrame, groupby: str) -> pd.DataFrame:
             block_start = (event.kind == 'sound') or (
                 (event.kind == 'word') and (event.modality == 'visual') and
                 (event.word_index == 0))
+        elif groupby == 'exp':  # Used for hebart2023
+            # block_start = (event.kind == 'exp') or (event.kind == 'test')
+            # if event.kind == 'image':
+            #     import pdb; pdb.set_trace()
+            block_start = event.kind == 'exp'
         else:
             block_start = False
 
@@ -335,6 +367,15 @@ def _create_blocks(events: pd.DataFrame, groupby: str) -> pd.DataFrame:
     # Add boundary unique ID
     block_events = list()
     for block, stop in zip(blocks, block_stops):
+        if block.kind == 'exp':
+            # block_info = asdict(  # Convert to Block object to apply checks
+            #     Block(start=block.start, duration=stop - block.start, uid=block.image_id,
+            #           language=block.language, modality=block.modality))
+            block_info = asdict(  # Convert to Block object to apply checks
+                Block(start=block.start, duration=1.0, uid=block.image_id,
+                      language=block.language, modality=block.modality))
+            block_events.append(block_info)
+            continue
         # Create block unique ID based on all events contained in the block
         mask = (events.start >= block.start) & ((events.start + events.duration) < stop)
         uid = _get_block_uid(events[mask])
@@ -342,6 +383,8 @@ def _create_blocks(events: pd.DataFrame, groupby: str) -> pd.DataFrame:
             Block(start=block.start, duration=stop - block.start, uid=uid,
                   language=block.language, modality=block.modality))
         block_events.append(block_info)
+
+    # import pdb; pdb.set_trace()
 
     blocks_df = pd.DataFrame(block_events)
     blocks_df['kind'] = 'block'
@@ -539,10 +582,13 @@ class EventAccessor:
         'phoneme': Phoneme,
         'motor': Motor,
         'special': Special,
-        'block': Block
+        'block': Block,
+        'exp': Exp,
+        'test': Test,
+        'catch': Catch,
     }
     WORD_CONDITIONS = {'sentence', 'context', 'question', 'fixation', 'word_list'}
-    VALID_BLOCK_TYPES = {'sentence', 'sound', 'sentence_or_sound'}
+    VALID_BLOCK_TYPES = {'sentence', 'sound', 'sentence_or_sound', 'exp'}
 
     def __init__(self, frame: pd.DataFrame) -> None:
         self._frame = frame

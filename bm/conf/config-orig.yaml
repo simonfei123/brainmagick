@@ -72,10 +72,10 @@ test:
 
 dset:
   selections:
-    - hebart2023
-  tmin: -0.3 # -0.5
-  tmax: 1.0 # 2.5
-  n_recordings: 480            # (1000)
+    - gwilliams2022
+  tmin: -0.5
+  tmax: 2.5
+  n_recordings: 1000
   n_subjects:                   # If provided, will take recordings so have no more
                                 #   than  that many subjects.
   n_subjects_test:              # Same but only for the test set. Should always be less
@@ -85,37 +85,36 @@ dset:
   test_ratio: 0.2               # Fraction of the blocks used for test.
   valid_ratio: 0.1              # Fraction of the blocks used for valid.
   remove_ratio: 0.              # Fraction of the bock to remove from the train set.
-  condition: exp                # If a float, step in seconds between samples, else condition. (0.5)
+  condition: 0.5                # If a float, step in seconds between samples, else condition.
   apply_baseline: true          # Remove MEG average on first 0.3 seconds from all the sample.
-  min_block_duration: 1         # Minimum duration of a block in seconds. If blocks are smaller than this
+  min_block_duration: 6         # Minimum duration of a block in seconds. If blocks are smaller than this
                                 #   they will be merged together. This can be problematic for
                                 #   ensuring the separation of the train and test segments, unless
                                 #   all subjects sees the blocks exactly in the same order.
   force_uid_assignement: false  # Forbids the merging of blocks, to use for `schoffelen2019`.
   min_n_blocks_per_split: 1     # raise an error if there are fewer blocks per split than this
-  ignore_end_in_block: true    # A segment is considered only if fully contained inside the split blocks,
+  ignore_end_in_block: false    # A segment is considered only if fully contained inside the split blocks,
                                 # if True, this allows the end of the segment to be outside the split blocks.
                                 # This creates potential contamination, but can be useful to accessing certain
-                                # segments in the dataset that are discarded otherwise. (false)
-  ignore_start_in_block: true # Same but for the beginning of a segment (e.g. [tmin, 0]). (false)
+                                # segments in the dataset that are discarded otherwise.
+  ignore_start_in_block: false  # Same but for the beginning of a segment (e.g. [tmin, 0]).
   sample_rate: 120              # All studies will be resampled to that many Hertz.
   highpass: 0                   # Highpass filter in Hz.
-  event_mask: false              # If true, returns a mask indicating when a stimulus occurs in epoch.
+  event_mask: true              # If true, returns a mask indicating when a stimulus occurs in epoch.
                                 # For non contrastive losses, only compute the loss where the mask is True.
-                                # (true)
-  split_wav_as_block: false      # Split wav files into smaller chunks that do not overlap block boundaries.
+  split_wav_as_block: true      # Split wav files into smaller chunks that do not overlap block boundaries.
                                 # This is important to ensures like Wav2Vec do not leak information between
-                                # the train and test. (false)
+                                # the train and test.
   allow_empty_split: false      # Allow empty splits, this can happen if a study has too few blocks.
   autoreject: false             # Use autoreject (https://autoreject.github.io/), super slow and loads
                                 # all the dataset in memory, so be careful!
   test:           # Overrides for the test set, only if value is not None
     tmin:
     tmax:
-    condition: exp # word
+    condition: word
   # features = stimulus representations
   features:
-    # - Wav2VecTransformer
+    - Wav2VecTransformer
   extra_test_features: []  # extra features loaded only at test time.
   # See conf/features_defaults/features_defauls.yaml for a list
   # of the features parameters.
